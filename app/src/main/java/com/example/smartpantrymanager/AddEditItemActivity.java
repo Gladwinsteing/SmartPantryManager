@@ -1,7 +1,7 @@
 package com.example.smartpantrymanager;
 
+import android.app.DatePickerDialog;
 import android.os.Bundle;
-import android.view.View;
 import android.widget.ArrayAdapter;
 import android.widget.Button;
 import android.widget.EditText;
@@ -12,6 +12,8 @@ import androidx.appcompat.app.AppCompatActivity;
 
 import com.example.smartpantrymanager.database.DatabaseHelper;
 import com.example.smartpantrymanager.models.PantryItem;
+
+import java.util.Calendar;
 
 public class AddEditItemActivity extends AppCompatActivity {
 
@@ -44,7 +46,15 @@ public class AddEditItemActivity extends AppCompatActivity {
         unitAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item);
         inputUnit.setAdapter(unitAdapter);
 
-        // Did we get an id? If so, we're in edit mode.
+        // ---- Expiry date picker ----
+        inputExpiry.setOnClickListener(v -> showDatePicker());
+        inputExpiry.setOnLongClickListener(v -> {
+            inputExpiry.setText("");
+            Toast.makeText(this, "Expiry date cleared", Toast.LENGTH_SHORT).show();
+            return true;
+        });
+
+        // ---- Edit mode? ----
         editingId = getIntent().getIntExtra(EXTRA_ITEM_ID, -1);
         if (editingId != -1) {
             formTitle.setText("Edit Ingredient");
@@ -54,12 +64,40 @@ public class AddEditItemActivity extends AppCompatActivity {
         save.setOnClickListener(v -> saveItem());
     }
 
+    private void showDatePicker() {
+        final Calendar c = Calendar.getInstance();
+
+        String existing = inputExpiry.getText().toString().trim();
+        if (existing.matches("\\d{4}-\\d{2}-\\d{2}")) {
+            try {
+                String[] parts = existing.split("-");
+                c.set(Integer.parseInt(parts[0]),
+                        Integer.parseInt(parts[1]) - 1,
+                        Integer.parseInt(parts[2]));
+            } catch (NumberFormatException ignored) { /* fall back to today */ }
+        }
+
+        DatePickerDialog dialog = new DatePickerDialog(
+                this,
+                (view, year, month, dayOfMonth) -> {
+                    String formatted = String.format("%04d-%02d-%02d",
+                            year, month + 1, dayOfMonth);
+                    inputExpiry.setText(formatted);
+                },
+                c.get(Calendar.YEAR),
+                c.get(Calendar.MONTH),
+                c.get(Calendar.DAY_OF_MONTH)
+        );
+
+        dialog.getDatePicker().setMinDate(System.currentTimeMillis() - 1000);
+        dialog.show();
+    }
+
     private void prefillFromDb() {
         for (PantryItem p : db.getAllPantryItems()) {
             if (p.getId() == editingId) {
                 inputName.setText(p.getName());
                 inputQuantity.setText(String.valueOf(p.getQuantity()));
-                // select matching unit if present
                 for (int i = 0; i < UNITS.length; i++) {
                     if (UNITS[i].equalsIgnoreCase(p.getUnit())) {
                         inputUnit.setSelection(i);
@@ -78,7 +116,6 @@ public class AddEditItemActivity extends AppCompatActivity {
         String expiry = inputExpiry.getText().toString().trim();
         String unit = inputUnit.getSelectedItem().toString();
 
-        // ---- Input validation ----
         if (name.isEmpty()) {
             inputName.setError("Please enter a name");
             inputName.requestFocus();
@@ -102,7 +139,7 @@ public class AddEditItemActivity extends AppCompatActivity {
             inputQuantity.requestFocus();
             return;
         }
-        // Simple expiry format check
+        // Safety net: still validate format even though the picker guarantees it
         if (!expiry.isEmpty() && !expiry.matches("\\d{4}-\\d{2}-\\d{2}")) {
             inputExpiry.setError("Use format yyyy-MM-dd");
             inputExpiry.requestFocus();
