@@ -1,6 +1,12 @@
 package com.example.smartpantrymanager;
 
 import android.os.Bundle;
+import androidx.annotation.NonNull;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.fragment.app.Fragment;
+import com.google.android.material.bottomnavigation.BottomNavigationView;
+
+import android.os.Bundle;
 import java.util.List;
 
 import androidx.activity.EdgeToEdge;
@@ -18,38 +24,31 @@ public class MainActivity extends AppCompatActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
-        // DO NOT call setContentView yet — this is a temporary test harness.
+        setContentView(R.layout.activity_main);
 
-        DatabaseHelper db = new DatabaseHelper(this);
+        BottomNavigationView bottomNav = findViewById(R.id.bottom_nav);
 
-        // 1. Confirm recipes seeded
-        List<Recipe> recipes = db.getAllRecipes();
-        android.util.Log.d("DB_TEST", "Recipes seeded: " + recipes.size());
-        for (Recipe r : recipes) {
-            android.util.Log.d("DB_TEST", "  - " + r.getName()
-                    + " (" + db.getIngredientsForRecipe(r.getId()).size() + " ingredients)");
+        // Show Pantry tab on first launch, but only if we're not restoring state
+        if (savedInstanceState == null) {
+            getSupportFragmentManager().beginTransaction()
+                    .replace(R.id.fragment_container, new PantryFragment())
+                    .commit();
         }
 
-        // 2. Add a pantry item
-        db.addPantryItem(new PantryItem("Egg", 2, "unit", null));
-        db.addPantryItem(new PantryItem("Butter", 100, "g", null));
-
-        // 3. Confirm it saved
-        List<PantryItem> pantry = db.getAllPantryItems();
-        android.util.Log.d("DB_TEST", "Pantry size: " + pantry.size());
-        for (PantryItem p : pantry) android.util.Log.d("DB_TEST", "  - " + p);
-
-        // 4. Strict matches
-        List<Recipe> matches = db.getStrictMatches();
-        android.util.Log.d("DB_TEST", "Strict matches: " + matches.size());
-        for (Recipe r : matches) android.util.Log.d("DB_TEST", "  ✓ " + r.getName());
-
-        // 5. Delete the egg and re-check
-        int eggId = pantry.get(0).getId();
-        db.deletePantryItem(eggId);
-        List<Recipe> after = db.getStrictMatches();
-        android.util.Log.d("DB_TEST", "After deleting egg, matches: " + after.size());
-        for (Recipe r : after) android.util.Log.d("DB_TEST", "  ✓ " + r.getName());
+        bottomNav.setOnItemSelectedListener(item -> {
+            Fragment selected;
+            int id = item.getItemId();
+            if (id == R.id.nav_pantry) {
+                selected = new PantryFragment();
+            } else if (id == R.id.nav_suggestions) {
+                selected = new SuggestionsFragment();
+            } else {
+                selected = new SettingsFragment();
+            }
+            getSupportFragmentManager().beginTransaction()
+                    .replace(R.id.fragment_container, selected)
+                    .commit();
+            return true;
+        });
     }
-
 }
